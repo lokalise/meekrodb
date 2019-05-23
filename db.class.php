@@ -46,7 +46,8 @@ class DB {
     $mdb = DB::$mdb;
     
     if ($mdb === null) {
-      $mdb = DB::$mdb = new MeekroDB();
+      global $kernel;
+      $mdb = DB::$mdb = $kernel->getContainer()->get('lokalise.adapter.database');
     }
 
     static $variables_to_sync = array('param_char', 'named_param_seperator', 'success_handler', 'error_handler', 'throw_exception_on_error',
