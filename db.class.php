@@ -658,11 +658,11 @@ class MeekroDB {
     
     if ($this->success_handler) $starttime = microtime(true);
     if ($isMultiUpdate) {
-      $result = 0;
+      $result = [];
       if ($db->multi_query($sql)) {
         //Since we are currently only dealing with update queries, store total affected rows as a result
         do {
-          $result += $db->affected_rows;
+          $result[] = $db->affected_rows;
         } while ($db->next_result());
       }
     } else {
