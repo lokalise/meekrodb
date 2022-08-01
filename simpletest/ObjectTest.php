@@ -306,6 +306,25 @@ class ObjectTest extends SimpleTest {
     $this->assert($this->mdb->affectedRows() === 1);
   }
 
+  function test_8_multi_update() {
+    $this->mdb->update('accounts', ['age' => 110, 'height' => 211], 'id = %i', 6);
+    $result = $this->mdb->query("SELECT * FROM accounts WHERE id = 6");
+    $this->assert(count($result) === 1);
+    $this->assert($result[0]['age'] === '110');
+    $this->assert($result[0]['height'] === '211');
+
+    $this->mdb->update('accounts', [
+      [['age' => 300, 'height' => 330], 'id = %i', 6],
+      [['age' => 200, 'height' => 250], 'id = %i', 7],
+    ]);
+    $result = $this->mdb->query("SELECT * FROM accounts WHERE id IN (6, 7)");
+    $this->assert(count($result) === 2);
+    $this->assert($result[0]['age'] === '300');
+    $this->assert($result[0]['height'] === '330');
+    $this->assert($result[1]['age'] === '200');
+    $this->assert($result[1]['height'] === '250');
+  }
+
 }
 
 
