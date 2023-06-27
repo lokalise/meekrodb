@@ -1,6 +1,6 @@
 <?php
 /*
-    Copyright (C) 2008-2012 Sergey Tsalkov (stsalkov@gmail.com)
+    Copyright (C) 2008 Sergey Tsalkov (stsalkov@gmail.com)
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as published by
@@ -16,7 +16,49 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-
+/**
+ * @link https://meekro.com/docs/retrieving-data.html Retrieving Data
+ *
+ * @method static query(string $query, ...$parameters)
+ * @method static queryFirstRow(string $query, ...$parameters)
+ * @method static queryFirstField(string $query, ...$parameters)
+ * @method static queryFirstList(string $query, ...$parameters)
+ * @method static queryFirstColumn(string $query, ...$parameters)
+ * @method static queryFullColumns(string $query, ...$parameters)
+ *
+ * @link https://meekro.com/docs/altering-data.html Altering Data
+ *
+ * @method static insert(string $table_name, array $data, ...$parameters)
+ * @method static int insertId()
+ * @method static insertIgnore(string $table_name, array $data, ...$parameters)
+ * @method static insertUpdate(string $table_name, array $data, ...$parameters)
+ * @method static replace(string $table_name, array $data, ...$parameters)
+ * @method static update(string $table_name, array $data, ...$parameters)
+ * @method static delete(string $table_name, ...$parameters)
+ * @method static int affectedRows()
+ *
+ * @link https://meekro.com/docs/transactions.html Transactions
+ *
+ * @method static startTransaction()
+ * @method static commit()
+ * @method static rollback()
+ *
+ * @link https://meekro.com/docs/hooks.html
+ *
+ * @method static int addHook(string $hook_type, callable $fn)
+ * @method static removeHook(string $hook_type, int $hook_id)
+ * @method static removeHooks(string $hook_type)
+ *
+ * @link https://meekro.com/docs/misc-methods.html Misc Methods and Variables
+ *
+ * @method static useDB(string $database_name)
+ * @method static array tableList(?string $database_name = null)
+ * @method static array columnList(string $table_name)
+ * @method static disconnect()
+ * @method static mysqli get()
+ * @method static mixed lastQuery()
+ * @method static string parse(string $query, ...$parameters)
+ */
 class DB {
   // initial connection
   public static $dbName = '';
@@ -30,20 +72,15 @@ class DB {
   // configure workings
   public static $param_char = '%';
   public static $named_param_seperator = '_';
-  public static $success_handler = false;
-  public static $error_handler = true;
-  public static $throw_exception_on_error = false;
-  public static $nonsql_error_handler = null;
-  public static $throw_exception_on_nonsql_error = false;
   public static $nested_transactions = false;
-  public static $usenull = true;
-  public static $ssl = array('key' => '', 'cert' => '', 'ca_cert' => '', 'ca_path' => '', 'cipher' => '');
+  public static $ssl = null;
   public static $connect_options = array(MYSQLI_OPT_CONNECT_TIMEOUT => 30);
-  
+  public static $connect_flags = 0;
+  public static $logfile;
+
   // internal
   protected static $mdb = null;
-  public static $variables_to_sync = array('param_char', 'named_param_seperator', 'success_handler', 'error_handler', 'throw_exception_on_error',
-    'nonsql_error_handler', 'throw_exception_on_nonsql_error', 'nested_transactions', 'usenull', 'ssl', 'connect_options');
+  public static $variables_to_sync = array('param_char', 'named_param_seperator', 'nested_transactions', 'ssl', 'connect_options', 'connect_flags', 'logfile');
   
   public static function getMDB() {
     $mdb = DB::$mdb;
@@ -58,53 +95,21 @@ class DB {
     
     return $mdb;
   }
-  
-  // yes, this is ugly. __callStatic() only works in 5.3+
-  public static function get() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'get'), $args); }
-  public static function disconnect() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'disconnect'), $args); }
-  public static function query() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'query'), $args); }
-  public static function queryFirstRow() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'queryFirstRow'), $args); }
-  public static function queryOneRow() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'queryOneRow'), $args); }
-  public static function queryAllLists() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'queryAllLists'), $args); }
-  public static function queryFullColumns() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'queryFullColumns'), $args); }
-  public static function queryFirstList() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'queryFirstList'), $args); }
-  public static function queryOneList() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'queryOneList'), $args); }
-  public static function queryFirstColumn() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'queryFirstColumn'), $args); }
-  public static function queryOneColumn() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'queryOneColumn'), $args); }
-  public static function queryFirstField() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'queryFirstField'), $args); }
-  public static function queryOneField() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'queryOneField'), $args); }
-  public static function queryRaw() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'queryRaw'), $args); }
-  public static function queryRawUnbuf() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'queryRawUnbuf'), $args); }
-  
-  public static function insert() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'insert'), $args); }
-  public static function insertIgnore() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'insertIgnore'), $args); }
-  public static function insertUpdate() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'insertUpdate'), $args); }
-  public static function replace() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'replace'), $args); }
-  public static function update() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'update'), $args); }
-  public static function delete() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'delete'), $args); }
-  
-  public static function insertId() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'insertId'), $args); }
-  public static function count() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'count'), $args); }
-  public static function affectedRows() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'affectedRows'), $args); }
-  
-  public static function useDB() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'useDB'), $args); }
-  public static function startTransaction() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'startTransaction'), $args); }
-  public static function commit() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'commit'), $args); }
-  public static function rollback() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'rollback'), $args); }
-  public static function tableList() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'tableList'), $args); }
-  public static function columnList() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'columnList'), $args); }
-  
-  public static function sqlEval() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'sqlEval'), $args); }
-  public static function nonSQLError() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'nonSQLError'), $args); }
-  
-  public static function serverVersion() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'serverVersion'), $args); }
-  public static function transactionDepth() { $args = func_get_args(); return call_user_func_array(array(DB::getMDB(), 'transactionDepth'), $args); }
-  
-  
-  public static function debugMode($handler = true) { 
-    DB::$success_handler = $handler;
+
+  public static function __callStatic($name, $args) {
+    $fn = array(DB::getMDB(), $name);
+    if (! is_callable($fn)) {
+      throw new MeekroDBException("MeekroDB does not have a method called $name");
+    }
+
+    return call_user_func_array($fn, $args);
   }
-  
+
+  // --- begin deprecated methods (kept for backwards compatability)
+  static function debugMode($enable=true) {
+    if ($enable) self::$logfile = fopen('php://output', 'w');
+    else self::$logfile = null;
+  }
 }
 
 
@@ -121,16 +126,12 @@ class MeekroDB {
   // configure workings
   public $param_char = '%';
   public $named_param_seperator = '_';
-  public $success_handler = false;
-  public $error_handler = true;
-  public $throw_exception_on_error = false;
-  public $nonsql_error_handler = null;
-  public $throw_exception_on_nonsql_error = false;
   public $nested_transactions = false;
-  public $usenull = true;
-  public $ssl = array('key' => '', 'cert' => '', 'ca_cert' => '', 'ca_path' => '', 'cipher' => '');
+  public $ssl = null;
   public $connect_options = array(MYSQLI_OPT_CONNECT_TIMEOUT => 30);
-  
+  public $connect_flags = 0;
+  public $logfile;
+
   // internal
   public $internal_mysql = null;
   public $server_info = null;
@@ -139,8 +140,16 @@ class MeekroDB {
   public $affected_rows = 0;
   public $current_db = null;
   public $nested_transactions_count = 0;
-  
-  
+  public $last_query;
+
+  protected $hooks = array(
+    'pre_parse' => array(),
+    'pre_run' => array(),
+    'post_run' => array(),
+    'run_success' => array(),
+    'run_failed' => array(),
+  );
+
   public function __construct($host=null, $user=null, $password=null, $dbName=null, $port=null, $encoding=null, $socket=null)  {
     if ($host === null) $host = DB::$host;
     if ($user === null) $user = DB::$user;
@@ -163,11 +172,9 @@ class MeekroDB {
 
   // suck in config settings from static class
   public function sync_config() {
-    $db_class_vars = get_class_vars('DB'); // the DB::$$var syntax only works in 5.3+
-
     foreach (DB::$variables_to_sync as $variable) {
-      if ($this->$variable !== $db_class_vars[$variable]) {
-        $this->$variable = $db_class_vars[$variable];
+      if ($this->$variable !== DB::$$variable) {
+        $this->$variable = DB::$$variable;
       }
     }
   }
@@ -180,11 +187,15 @@ class MeekroDB {
       $this->current_db = $this->dbName;
       $mysql = new mysqli();
 
-      $connect_flags = 0;
-      if ($this->ssl['key']) {
-        $mysql->ssl_set($this->ssl['key'], $this->ssl['cert'], $this->ssl['ca_cert'], $this->ssl['ca_path'], $this->ssl['cipher']);
+      $connect_flags = $this->connect_flags;
+      if (is_array($this->ssl)) {
+        // PHP produces a warning when trying to access undefined array keys
+        $ssl_default = array('key' => NULL, 'cert' => NULL, 'ca_cert' => NULL, 'ca_path' => NULL, 'cipher' => NULL);
+        $ssl = array_merge($ssl_default, $this->ssl);
+        $mysql->ssl_set($ssl['key'], $ssl['cert'], $ssl['ca_cert'], $ssl['ca_path'], $ssl['cipher']);
         $connect_flags |= MYSQLI_CLIENT_SSL;
-      } 
+      }
+
       foreach ($this->connect_options as $key => $value) {
         $mysql->options($key, $value);
       }
@@ -193,7 +204,7 @@ class MeekroDB {
       @$mysql->real_connect($this->host, $this->user, $this->password, $this->dbName, $this->port, $this->socket, $connect_flags);
       
       if ($mysql->connect_error) {
-        return $this->nonSQLError('Unable to connect to MySQL server! Error: ' . $mysql->connect_error);
+        throw new MeekroDBException("Unable to connect to MySQL server! Error: {$mysql->connect_error}");
       }
       
       $mysql->set_charset($this->encoding);
@@ -212,43 +223,156 @@ class MeekroDB {
     }
     $this->internal_mysql = null; 
   }
-  
-  public function nonSQLError($message) {
-    if ($this->throw_exception_on_nonsql_error) {
-      $e = new MeekroDBException($message);
-      throw $e;
+
+  function addHook($type, $fn) {
+    if (! array_key_exists($type, $this->hooks)) {
+      throw new MeekroDBException("Hook type $type is not recognized");
     }
-    
-    $error_handler = is_callable($this->nonsql_error_handler) ? $this->nonsql_error_handler : 'meekrodb_error_handler';
-        
-    call_user_func($error_handler, array(
-      'type' => 'nonsql',
-      'error' => $message
-    ));
+
+    if (! is_callable($fn)) {
+      throw new MeekroDBException("Second arg to addHook() must be callable");
+    }
+
+    $this->hooks[$type][] = $fn;
+    end($this->hooks[$type]);
+    return key($this->hooks[$type]);
   }
-  
-  public function debugMode($handler = true) {
-    $this->success_handler = $handler;
+
+  function removeHook($type, $index) {
+    if (! array_key_exists($type, $this->hooks)) {
+      throw new MeekroDBException("Hook type $type is not recognized");
+    }
+
+    if (! array_key_exists($index, $this->hooks[$type])) {
+      throw new MeekroDBException("That hook does not exist");
+    }
+
+    unset($this->hooks[$type][$index]);
+  }
+
+  function removeHooks($type) {
+    if (! array_key_exists($type, $this->hooks)) {
+      throw new MeekroDBException("Hook type $type is not recognized");
+    }
+
+    $this->hooks[$type] = array();
+  }
+
+  function runHook($type, $args=array()) {
+    if (! array_key_exists($type, $this->hooks)) {
+      throw new MeekroDBException("Hook type $type is not recognized");
+    }
+
+    if ($type == 'pre_parse') {
+      $query = $args['query'];
+      $args = $args['args'];
+
+      foreach ($this->hooks[$type] as $hook) {
+        $result = call_user_func($hook, array('query' => $query, 'args' => $args));
+        if (is_null($result)) {
+          $result = array($query, $args);
+        }
+        if (!is_array($result) || count($result) != 2) {
+          throw new MeekroDBException("pre_parse hook must return an array of 2 items");
+        }
+        if (!is_string($result[0])) {
+          throw new MeekroDBException("pre_parse hook must return a string as its first item");
+        }
+        if (!is_array($result[1])) {
+          throw new MeekroDBException("pre_parse hook must return an array as its second item");
+        }
+
+        $query = $result[0];
+        $args = $result[1];
+      }
+
+      return array($query, $args);
+    }
+    else if ($type == 'pre_run') {
+      $query = $args['query'];
+
+      foreach ($this->hooks[$type] as $hook) {
+        $result = call_user_func($hook, array('query' => $query));
+        if (is_null($result)) $result = $query;
+        if (!is_string($result)) throw new MeekroDBException("pre_run hook must return a string");
+
+        $query = $result;
+      }
+
+      return $query;
+    }
+    else if ($type == 'post_run') {
+
+      foreach ($this->hooks[$type] as $hook) {
+        call_user_func($hook, $args);
+      }
+    }
+    else if ($type == 'run_success') {
+
+      foreach ($this->hooks[$type] as $hook) {
+        call_user_func($hook, $args);
+      }
+    }
+    else if ($type == 'run_failed') {
+
+      foreach ($this->hooks[$type] as $hook) {
+        $result = call_user_func($hook, $args);
+        if ($result === false) return false;
+      }
+    }
+    else {
+      throw new MeekroDBException("runHook() type $type not recognized");
+    }
+  }
+
+  protected function defaultRunHook($args) {
+    if (! $this->logfile) return;
+
+    $query = $args['query'];
+    $query = preg_replace('/\s+/', ' ', $query);
+
+    $results[] = sprintf('[%s]', date('Y-m-d H:i:s'));
+    $results[] = sprintf('QUERY: %s', $query);
+    $results[] = sprintf('RUNTIME: %s ms', $args['runtime']);
+
+    if (isset($args['affected']) && $args['affected']) {
+      $results[] = sprintf('AFFECTED ROWS: %s', $args['affected']);
+    }
+    if (isset($args['rows']) && $args['rows']) {
+      $results[] = sprintf('RETURNED ROWS: %s', $args['rows']);
+    }
+    if (isset($args['error'])) {
+      $results[] = 'ERROR: ' . $args['error'];
+    }
+
+    $results = implode("\n", $results) . "\n\n";
+
+    if (is_resource($this->logfile)) {
+      fwrite($this->logfile, $results);
+    } else {
+      file_put_contents($this->logfile, $results, FILE_APPEND);
+    }
   }
   
   public function serverVersion() { $this->get(); return $this->server_info; }
   public function transactionDepth() { return $this->nested_transactions_count; }
   public function insertId() { return $this->insert_id; }
   public function affectedRows() { return $this->affected_rows; }
-  public function count() { $args = func_get_args(); return call_user_func_array(array($this, 'numRows'), $args); }
+  public function count() { return call_user_func_array(array($this, 'numRows'), func_get_args()); }
   public function numRows() { return $this->num_rows; }
-  
-  public function useDB() { $args = func_get_args(); return call_user_func_array(array($this, 'setDB'), $args); }
+  public function lastQuery() { return $this->last_query; }
+
+  public function useDB() { return call_user_func_array(array($this, 'setDB'), func_get_args()); }
   public function setDB($dbName) {
     $db = $this->get();
-    if (! $db->select_db($dbName)) return $this->nonSQLError("Unable to set database to $dbName");
+    if (! $db->select_db($dbName)) throw new MeekroDBException("Unable to set database to $dbName");
     $this->current_db = $dbName;
   }
   
   
   public function startTransaction() {
     if ($this->nested_transactions && $this->serverVersion() < '5.5') {
-      return $this->nonSQLError("Nested transactions are only available on MySQL 5.5 and greater. You are using MySQL " . $this->serverVersion());
+      throw new MeekroDBException("Nested transactions are only available on MySQL 5.5 and greater. You are using MySQL " . $this->serverVersion());
     }
     
     if (!$this->nested_transactions || $this->nested_transactions_count == 0) {
@@ -264,7 +388,7 @@ class MeekroDB {
   
   public function commit($all=false) {
     if ($this->nested_transactions && $this->serverVersion() < '5.5') {
-      return $this->nonSQLError("Nested transactions are only available on MySQL 5.5 and greater. You are using MySQL " . $this->serverVersion());
+      throw new MeekroDBException("Nested transactions are only available on MySQL 5.5 and greater. You are using MySQL " . $this->serverVersion());
     }
     
     if ($this->nested_transactions && $this->nested_transactions_count > 0)
@@ -282,7 +406,7 @@ class MeekroDB {
   
   public function rollback($all=false) {
     if ($this->nested_transactions && $this->serverVersion() < '5.5') {
-      return $this->nonSQLError("Nested transactions are only available on MySQL 5.5 and greater. You are using MySQL " . $this->serverVersion());
+      throw new MeekroDBException("Nested transactions are only available on MySQL 5.5 and greater. You are using MySQL " . $this->serverVersion());
     }
     
     if ($this->nested_transactions && $this->nested_transactions_count > 0)
@@ -298,11 +422,22 @@ class MeekroDB {
     return $this->nested_transactions_count;
   }
   
-  protected function formatTableName($table) {
-    $table = trim($table, '`');
+  function formatBackticks($name, $split_dots=true) {
+    $name = trim($name, '`');
+
+    if ($split_dots && strpos($name, '.')) {
+      return implode('.', array_map(array($this, 'formatBackticks'), explode('.', $name)));
+    }
     
-    if (strpos($table, '.')) return implode('.', array_map(array($this, 'formatTableName'), explode('.', $table)));
-    else return '`' . str_replace('`', '``', $table) . '`'; 
+    return '`' . str_replace('`', '``', $name) . '`';
+  }
+
+  function formatTableName($table) {
+    return $this->formatBackticks($table, true);
+  }
+
+  function formatColumnName($column) {
+    return $this->formatBackticks($column, false);
   }
   
   public function update() {
@@ -330,14 +465,16 @@ class MeekroDB {
       return call_user_func_array(array($this, 'query'), $queryArguments);
     }
 
-    $where = array_shift($args);
-    
-    $query = str_replace('%', $this->param_char, "UPDATE %b SET %hc WHERE ") . $where;
-    
-    array_unshift($args, $params);
-    array_unshift($args, $table);
-    array_unshift($args, $query);
-    return call_user_func_array(array($this, 'query'), $args);
+    $update_part = $this->parse(
+      str_replace('%', $this->param_char, "UPDATE %b SET %hc"),
+      $table, $params
+    );
+
+    // we don't know if they used named or numbered args, so the where clause
+    // must be run through the parser separately
+    $where_part = call_user_func_array(array($this, 'parse'), $args);
+    $query = $update_part . ' WHERE ' . $where_part;
+    return $this->query($query);
   }
   
   public function insertOrReplace($which, $table, $datas, $options=array()) {
@@ -357,32 +494,34 @@ class MeekroDB {
       $keys = array_keys($datas);
       $values = array_values($datas);
     }
+
+    if ($which != 'INSERT' && $which != 'INSERT IGNORE' && $which != 'REPLACE') {
+      throw new MeekroDBException('insertOrReplace() must be called with one of: INSERT, INSERT IGNORE, REPLACE');
+    }
     
-    if (isset($options['ignore']) && $options['ignore']) $which = 'INSERT IGNORE';
-    
-    if (isset($options['update']) && is_array($options['update']) && $options['update'] && strtolower($which) == 'insert') {
+    if (isset($options['update']) && is_array($options['update']) && $options['update'] && $which == 'INSERT') {
       if (array_values($options['update']) !== $options['update']) {
         return $this->query(
-          str_replace('%', $this->param_char, "INSERT INTO %b %lb VALUES $var ON DUPLICATE KEY UPDATE %hc"), 
+          str_replace('%', $this->param_char, "INSERT INTO %b %lc VALUES $var ON DUPLICATE KEY UPDATE %hc"),
           $table, $keys, $values, $options['update']);
       } else {
         $update_str = array_shift($options['update']);
         $query_param = array(
-          str_replace('%', $this->param_char, "INSERT INTO %b %lb VALUES $var ON DUPLICATE KEY UPDATE ") . $update_str, 
+          str_replace('%', $this->param_char, "INSERT INTO %b %lc VALUES $var ON DUPLICATE KEY UPDATE ") . $update_str,
           $table, $keys, $values);
         $query_param = array_merge($query_param, $options['update']);
         return call_user_func_array(array($this, 'query'), $query_param);
       }
       
-    } 
+    }
     
     return $this->query(
-      str_replace('%', $this->param_char, "%l INTO %b %lb VALUES $var"), 
+      str_replace('%', $this->param_char, "%l INTO %b %lc VALUES $var"),
       $which, $table, $keys, $values);
   }
   
   public function insert($table, $data) { return $this->insertOrReplace('INSERT', $table, $data); }
-  public function insertIgnore($table, $data) { return $this->insertOrReplace('INSERT', $table, $data, array('ignore' => true)); }
+  public function insertIgnore($table, $data) { return $this->insertOrReplace('INSERT IGNORE', $table, $data); }
   public function replace($table, $data) { return $this->insertOrReplace('REPLACE', $table, $data); }
   
   public function insertUpdate() {
@@ -392,7 +531,7 @@ class MeekroDB {
     
     if (! isset($args[0])) { // update will have all the data of the insert
       if (isset($data[0]) && is_array($data[0])) { //multiple insert rows specified -- failing!
-        return $this->nonSQLError("Badly formatted insertUpdate() query -- you didn't specify the update component!");
+        throw new MeekroDBException("Badly formatted insertUpdate() query -- you didn't specify the update component!");
       }
       
       $args[0] = $data;
@@ -407,20 +546,32 @@ class MeekroDB {
   public function delete() {
     $args = func_get_args();
     $table = $this->formatTableName(array_shift($args));
-    $where = array_shift($args);
-    $buildquery = "DELETE FROM $table WHERE $where";
-    array_unshift($args, $buildquery);
-    return call_user_func_array(array($this, 'query'), $args);
+
+    $where = call_user_func_array(array($this, 'parse'), $args);
+    $query = "DELETE FROM {$table} WHERE {$where}";
+    return $this->query($query);
   }
   
   public function sqleval() {
     $args = func_get_args();
-    $text = call_user_func_array(array($this, 'parseQueryParams'), $args);
+    $text = call_user_func_array(array($this, 'parse'), $args);
     return new MeekroDBEval($text);
   }
   
   public function columnList($table) {
-    return $this->queryOneColumn('Field', "SHOW COLUMNS FROM %b", $table);
+    $data = $this->query("SHOW COLUMNS FROM %b", $table);
+    $columns = array();
+    foreach ($data as $row) {
+      $columns[$row['Field']] = array(
+        'type' => $row['Type'],
+        'null' => $row['Null'],
+        'key' => $row['Key'],
+        'default' => $row['Default'],
+        'extra' => $row['Extra']
+      );
+    }
+
+    return $columns;
   }
   
   public function tableList($db = null) {
@@ -433,105 +584,205 @@ class MeekroDB {
     if (isset($olddb)) $this->useDB($olddb);
     return $result;
   }
-  
-  protected function preparseQueryParams() {
-    $args = func_get_args();
-    $sql = trim(strval(array_shift($args)));
-    $args_all = $args;
-    
-    if (count($args_all) == 0) return array($sql);
-      
-    $param_char_length = strlen($this->param_char);
-    $named_seperator_length = strlen($this->named_param_seperator);
-    
-    $types = array(
-      $this->param_char . 'll', // list of literals
-      $this->param_char . 'ls', // list of strings
-      $this->param_char . 'l',  // literal
-      $this->param_char . 'li', // list of integers
-      $this->param_char . 'ld', // list of decimals
-      $this->param_char . 'lb', // list of backticks
-      $this->param_char . 'lt', // list of timestamps
-      $this->param_char . 's',  // string
-      $this->param_char . 'i',  // integer
-      $this->param_char . 'd',  // double / decimal
-      $this->param_char . 'b',  // backtick
-      $this->param_char . 't',  // timestamp
-      $this->param_char . '?',  // infer type
-      $this->param_char . 'l?',  // list of inferred types
-      $this->param_char . 'll?',  // list of lists of inferred types
-      $this->param_char . 'hc',  // hash `key`='value' pairs separated by commas
-      $this->param_char . 'ha',  // hash `key`='value' pairs separated by and
-      $this->param_char . 'ho',  // hash `key`='value' pairs separated by or
-      $this->param_char . 'ss'  // search string (like string, surrounded with %'s)
+
+  protected function paramsMap() {
+    $t = $this;
+
+    return array(
+      's' => function($arg) use ($t) { return $t->escape($arg); },
+      'i' => function($arg) use ($t) { return $t->intval($arg); },
+      'd' => function($arg) use ($t) { return doubleval($arg); },
+      'b' => function($arg) use ($t) { return $t->formatTableName($arg); },
+      'c' => function($arg) use ($t) { return $t->formatColumnName($arg); },
+      'l' => function($arg) use ($t) { return strval($arg); },
+      't' => function($arg) use ($t) { return $t->escapeTS($arg); },
+      'ss' => function($arg) use ($t) { return $t->escape("%" . str_replace(array('%', '_'), array('\%', '\_'), $arg) . "%"); },
+
+      'ls' => function($arg) use ($t) { return array_map(array($t, 'escape'), $arg); },
+      'li' => function($arg) use ($t) { return array_map(array($t, 'intval'), $arg); },
+      'ld' => function($arg) use ($t) { return array_map('doubleval', $arg); },
+      'lb' => function($arg) use ($t) { return array_map(array($t, 'formatTableName'), $arg); },
+      'lc' => function($arg) use ($t) { return array_map(array($t, 'formatColumnName'), $arg); },
+      'll' => function($arg) use ($t) { return array_map('strval', $arg); },
+      'lt' => function($arg) use ($t) { return array_map(array($t, 'escapeTS'), $arg); },
+
+      '?' => function($arg) use ($t) { return $t->sanitize($arg); },
+      'l?' => function($arg) use ($t) { return $t->sanitize($arg, 'list'); },
+      'll?' => function($arg) use ($t) { return $t->sanitize($arg, 'doublelist'); },
+      'hc' => function($arg) use ($t) { return $t->sanitize($arg, 'hash'); },
+      'ha' => function($arg) use ($t) { return $t->sanitize($arg, 'hash', ' AND '); },
+      'ho' => function($arg) use ($t) { return $t->sanitize($arg, 'hash', ' OR '); },
+
+      $this->param_char => function($arg) use ($t) { return $t->param_char; },
     );
-    
-    // generate list of all MeekroDB variables in our query, and their position
-    // in the form "offset => variable", sorted by offsets
-    $posList = array();
-    foreach ($types as $type) {
-      $lastPos = 0;
-      while (($pos = strpos($sql, $type, $lastPos)) !== false) {
-        $lastPos = $pos + 1;
-        if (isset($posList[$pos]) && strlen($posList[$pos]) > strlen($type)) continue;
-        $posList[$pos] = $type;
+  }
+
+  protected function paramsMapArrayTypes() {
+    return array('ls', 'li', 'ld', 'lb', 'lc', 'll', 'lt', 'l?', 'll?', 'hc', 'ha', 'ho');
+  }
+
+  protected function nextQueryParam($query) {
+    $keys = array_keys($this->paramsMap());
+
+    $first_position = PHP_INT_MAX;
+    $first_param = null;
+    $first_type = null;
+    $arg = null;
+    $named_arg = null;
+    foreach ($keys as $key) {
+      $fullkey = $this->param_char . $key;
+      $pos = strpos($query, $fullkey);
+      if ($pos === false) continue;
+
+      if ($pos <= $first_position) {
+        $first_position = $pos;
+        $first_param = $fullkey;
+        $first_type = $key;
       }
     }
-    
-    ksort($posList);
-    
-    // for each MeekroDB variable, substitute it with array(type: i, value: 53) or whatever
-    $chunkyQuery = array(); // preparsed query
-    $pos_adj = 0; // how much we've added or removed from the original sql string
-    foreach ($posList as $pos => $type) {
-      $type = substr($type, $param_char_length); // variable, without % in front of it
-      $length_type = strlen($type) + $param_char_length; // length of variable w/o %
-      
-      $new_pos = $pos + $pos_adj; // position of start of variable
-      $new_pos_back = $new_pos + $length_type; // position of end of variable
-      $arg_number_length = 0; // length of any named or numbered parameter addition
-      
-      // handle numbered parameters
-      if ($arg_number_length = strspn($sql, '0123456789', $new_pos_back)) {
-        $arg_number = substr($sql, $new_pos_back, $arg_number_length);
-        if (! array_key_exists($arg_number, $args_all)) return $this->nonSQLError("Non existent argument reference (arg $arg_number): $sql");
-        
-        $arg = $args_all[$arg_number];
-        
-      // handle named parameters
-      } else if (substr($sql, $new_pos_back, $named_seperator_length) == $this->named_param_seperator) {
-        $arg_number_length = strspn($sql, 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_', 
-          $new_pos_back + $named_seperator_length) + $named_seperator_length;
-        
-        $arg_number = substr($sql, $new_pos_back + $named_seperator_length, $arg_number_length - $named_seperator_length);
-        if (count($args_all) != 1 || !is_array($args_all[0])) return $this->nonSQLError("If you use named parameters, the second argument must be an array of parameters");
-        if (! array_key_exists($arg_number, $args_all[0])) return $this->nonSQLError("Non existent argument reference (arg $arg_number): $sql");
-        
-        $arg = $args_all[0][$arg_number];
-        
-      } else {
-        $arg_number = 0;
-        $arg = array_shift($args);
+
+    if (is_null($first_param)) return;
+
+    $first_position_end = $first_position + strlen($first_param);
+    $named_seperator_length = strlen($this->named_param_seperator);
+    $arg_mask = '0123456789';
+    $named_arg_mask = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_';
+
+    if ($arg_number_length = strspn($query, $arg_mask, $first_position_end)) {
+      $arg = intval(substr($query, $first_position_end, $arg_number_length));
+      $first_param = substr($query, $first_position, strlen($first_param) + $arg_number_length);
+    }
+    else if (substr($query, $first_position_end, $named_seperator_length) == $this->named_param_seperator) {
+      $named_arg_length = strspn($query, $named_arg_mask, $first_position_end + $named_seperator_length);
+
+      if ($named_arg_length > 0) {
+        $named_arg = substr($query, $first_position_end + $named_seperator_length, $named_arg_length);
+        $first_param = substr($query, $first_position, strlen($first_param) + $named_seperator_length + $named_arg_length);
       }
-      
-      if ($new_pos > 0) $chunkyQuery[] = substr($sql, 0, $new_pos);
-      
-      if (is_object($arg) && ($arg instanceof WhereClause)) {
-        list($clause_sql, $clause_args) = $arg->textAndArgs();
+    }
+
+    return array(
+      'param' => $first_param,
+      'type' => $first_type,
+      'pos' => $first_position,
+      'arg' => $arg,
+      'named_arg' => $named_arg,
+    );
+  }
+
+  protected function preParse($query, $args) {
+    $arg_ct = 0;
+    $max_numbered_arg = 0;
+    $use_numbered_args = false;
+    $use_named_args = false;
+
+    $queryParts = array();
+    while ($Param = $this->nextQueryParam($query)) {
+      if ($Param['pos'] > 0) {
+        $queryParts[] = substr($query, 0, $Param['pos']);
+      }
+
+      if ($Param['type'] != $this->param_char && is_null($Param['arg']) && is_null($Param['named_arg'])) {
+        $Param['arg'] = $arg_ct++;
+      }
+
+      if (! is_null($Param['arg'])) {
+        $use_numbered_args = true;
+        $max_numbered_arg = max($max_numbered_arg, $Param['arg']);
+      }
+      if (! is_null($Param['named_arg'])) {
+        $use_named_args = true;
+      }
+
+      $queryParts[] = $Param;
+      $query = substr($query, $Param['pos'] + strlen($Param['param']));
+    }
+
+    if (strlen($query) > 0) {
+      $queryParts[] = $query;
+    }
+
+    if ($use_named_args) {
+      if ($use_numbered_args) {
+        throw new MeekroDBException("You can't mix named and numbered args!");
+      }
+
+      if (count($args) != 1 || !is_array($args[0])) {
+        throw new MeekroDBException("If you use named args, you must pass an assoc array of args!");
+      }
+    }
+
+    if ($use_numbered_args) {
+      if ($max_numbered_arg+1 > count($args)) {
+        throw new MeekroDBException(sprintf('Expected %d args, but only got %d!', $max_numbered_arg+1, count($args)));
+      }
+    }
+
+    return $queryParts;
+  }
+
+  function parse($query) {
+    $args = func_get_args();
+    array_shift($args);
+    $query = trim($query);
+
+    if (! $args) return $query;
+    $queryParts = $this->preParse($query, $args);
+
+    $array_types = $this->paramsMapArrayTypes();
+    $Map = $this->paramsMap();
+    $query = '';
+    foreach ($queryParts as $Part) {
+      if (is_string($Part)) {
+        $query .= $Part;
+        continue;
+      }
+
+      $fn = $Map[$Part['type']];
+      $is_array_type = in_array($Part['type'], $array_types, true);
+
+      $val = null;
+      if (!is_null($Part['named_arg'])) {
+        $key = $Part['named_arg'];
+        if (! array_key_exists($key, $args[0])) {
+          throw new MeekroDBException("Couldn't find named arg {$key}!");
+        }
+
+        $val = $args[0][$key];
+      }
+      else if (!is_null($Part['arg'])) {
+        $key = $Part['arg'];
+        $val = $args[$key];
+      }
+
+      if ($is_array_type && !is_array($val)) {
+        throw new MeekroDBException("Expected an array for arg $key but didn't get one!");
+      }
+      if ($is_array_type && count($val) == 0) {
+        throw new MeekroDBException("Arg {$key} array can't be empty!");
+      }
+      if (!$is_array_type && is_array($val)) {
+        $val = '';
+      }
+
+      if (is_object($val) && ($val instanceof WhereClause)) {
+        if ($Part['type'] != 'l') {
+          throw new MeekroDBException("WhereClause must be used with l arg, you used {$Part['type']} instead!");
+        }
+
+        list($clause_sql, $clause_args) = $val->textAndArgs();
         array_unshift($clause_args, $clause_sql); 
-        $preparsed_sql = call_user_func_array(array($this, 'preparseQueryParams'), $clause_args);
-        $chunkyQuery = array_merge($chunkyQuery, $preparsed_sql);  
-      } else {
-        $chunkyQuery[] = array('type' => $type, 'value' => $arg);
+        $result = call_user_func_array(array($this, 'parse'), $clause_args);
       }
-      
-      $sql = substr($sql, $new_pos_back + $arg_number_length);
-      $pos_adj -= $new_pos_back + $arg_number_length;
+      else {
+        $result = $fn($val);
+        if (is_array($result)) $result = '(' . implode(',', $result) . ')';
+      }
+
+      $query .= $result;
     }
-    
-    if (strlen($sql) > 0) $chunkyQuery[] = $sql;
-    
-    return $chunkyQuery;
+
+    return $query;
   }
   
   public function escape($str) { return "'" . $this->get()->real_escape_string(strval($str)) . "'"; }
@@ -544,7 +795,7 @@ class MeekroDB {
         else return $this->escape($value); // use __toString() value for objects, when possible
       }
       
-      if (is_null($value)) return $this->usenull ? 'NULL' : "''";
+      if (is_null($value)) return 'NULL';
       else if (is_bool($value)) return ($value ? 1 : 0);
       else if (is_int($value)) return $value;
       else if (is_float($value)) return $value;
@@ -556,7 +807,7 @@ class MeekroDB {
         $value = array_values($value);
         return '(' . implode(', ', array_map(array($this, 'sanitize'), $value)) . ')';
       } else {
-        return $this->nonSQLError("Expected array parameter, got something different!");
+        throw new MeekroDBException("Expected array parameter, got something different!");
       }
     } else if ($type == 'doublelist') {
       if (is_array($value) && array_values($value) === $value && is_array($value[0])) {
@@ -567,99 +818,48 @@ class MeekroDB {
         return implode(', ', $cleanvalues);
 
       } else {
-        return $this->nonSQLError("Expected double array parameter, got something different!");
+        throw new MeekroDBException("Expected double array parameter, got something different!");
       }
     } else if ($type == 'hash') {
       if (is_array($value)) {
         $pairs = array();
         foreach ($value as $k => $v) {
-          $pairs[] = $this->formatTableName($k) . '=' . $this->sanitize($v);
+          $pairs[] = $this->formatColumnName($k) . '=' . $this->sanitize($v);
         }
         
         return implode($hashjoin, $pairs);
       } else {
-        return $this->nonSQLError("Expected hash (associative array) parameter, got something different!");
+        throw new MeekroDBException("Expected hash (associative array) parameter, got something different!");
       }
     } else {
-      return $this->nonSQLError("Invalid type passed to sanitize()!");
+      throw new MeekroDBException("Invalid type passed to sanitize()!");
     }
     
   }
-  
-  protected function parseTS($ts) {
-    if (is_string($ts)) return date('Y-m-d H:i:s', strtotime($ts));
-    else if (is_object($ts) && ($ts instanceof DateTime)) return $ts->format('Y-m-d H:i:s');
+
+  function escapeTS($ts) {
+    if (is_string($ts)) {
+      $str = date('Y-m-d H:i:s', strtotime($ts));
+    }
+    else if (is_object($ts) && ($ts instanceof DateTime)) {
+      $str = $ts->format('Y-m-d H:i:s');
+    }
+
+    return $this->escape($str);
   }
   
-  protected function intval($var) {
+  function intval($var) {
     if (PHP_INT_SIZE == 8) return intval($var);
     return floor(doubleval($var));
   }
   
-  public function parseQueryParams() {
-    $args = func_get_args();
-    $chunkyQuery = call_user_func_array(array($this, 'preparseQueryParams'), $args);
-    
-    $query = '';
-    $array_types = array('ls', 'li', 'ld', 'lb', 'll', 'lt', 'l?', 'll?', 'hc', 'ha', 'ho');
-    
-    foreach ($chunkyQuery as $chunk) {
-      if (is_string($chunk)) {
-        $query .= $chunk;
-        continue;
-      }
-      
-      $type = $chunk['type'];
-      $arg = $chunk['value'];
-      $result = '';
-      
-      $is_array_type = in_array($type, $array_types, true);
-      if ($is_array_type && !is_array($arg)) return $this->nonSQLError("Badly formatted SQL query: Expected array, got scalar instead!");
-      else if (!$is_array_type && is_array($arg)) $arg = '';
-      
-      if ($type == 's') $result = $this->escape($arg);
-      else if ($type == 'i') $result = $this->intval($arg);
-      else if ($type == 'd') $result = doubleval($arg);
-      else if ($type == 'b') $result = $this->formatTableName($arg);
-      else if ($type == 'l') $result = $arg;
-      else if ($type == 'ss') $result = $this->escape("%" . str_replace(array('%', '_'), array('\%', '\_'), $arg) . "%");
-      else if ($type == 't') $result = $this->escape($this->parseTS($arg)); 
-      
-      else if ($type == 'ls') $result = array_map(array($this, 'escape'), $arg);
-      else if ($type == 'li') $result = array_map(array($this, 'intval'), $arg);
-      else if ($type == 'ld') $result = array_map('doubleval', $arg);
-      else if ($type == 'lb') $result = array_map(array($this, 'formatTableName'), $arg);
-      else if ($type == 'll') $result = $arg;
-      else if ($type == 'lt') $result = array_map(array($this, 'escape'), array_map(array($this, 'parseTS'), $arg));
-      
-      else if ($type == '?') $result = $this->sanitize($arg);
-      else if ($type == 'l?') $result = $this->sanitize($arg, 'list');
-      else if ($type == 'll?') $result = $this->sanitize($arg, 'doublelist');
-      else if ($type == 'hc') $result = $this->sanitize($arg, 'hash');
-      else if ($type == 'ha') $result = $this->sanitize($arg, 'hash', ' AND ');
-      else if ($type == 'ho') $result = $this->sanitize($arg, 'hash', ' OR ');
-      
-      else return $this->nonSQLError("Badly formatted SQL query: Invalid MeekroDB param $type");
-      
-      if (is_array($result)) $result = '(' . implode(',', $result) . ')';
-      
-      $query .= $result;
-    }
-      
-    return $query;
-  }
-  
-  protected function prependCall($function, $args, $prepend) { array_unshift($args, $prepend); return call_user_func_array($function, $args); }
-  public function query() { $args = func_get_args(); return $this->prependCall(array($this, 'queryHelper'), $args, 'assoc'); }
-  public function queryAllLists() { $args = func_get_args(); return $this->prependCall(array($this, 'queryHelper'), $args, 'list'); }
-  public function queryFullColumns() { $args = func_get_args(); return $this->prependCall(array($this, 'queryHelper'), $args, 'full'); }
+  public function query() { return $this->queryHelper(array('assoc' => true), func_get_args()); }
+  public function queryAllLists() { return $this->queryHelper(array(), func_get_args()); }
+  public function queryFullColumns() { return $this->queryHelper(array('fullcols' => true), func_get_args()); }
+  public function queryWalk() { return $this->queryHelper(array('walk' => true), func_get_args()); }
 
-  public function queryRaw() { $args = func_get_args(); return $this->prependCall(array($this, 'queryHelper'), $args, 'raw_buf'); }
-  public function queryRawUnbuf() { $args = func_get_args(); return $this->prependCall(array($this, 'queryHelper'), $args, 'raw_unbuf'); }
-  
-  protected function queryHelper() {
-    $args = func_get_args();
-    $type = array_shift($args);
+  protected function queryHelper($opts, $args) {
+    $query = array_shift($args);
 
     $isMultiUpdate = false;
 
@@ -669,36 +869,20 @@ class MeekroDB {
       $isMultiUpdate = true;
     }
 
+    $opts_fullcols = (isset($opts['fullcols']) && $opts['fullcols']);
+    $opts_raw = (isset($opts['raw']) && $opts['raw']);
+    $opts_unbuf = (isset($opts['unbuf']) && $opts['unbuf']);
+    $opts_assoc = (isset($opts['assoc']) && $opts['assoc']);
+    $opts_walk = (isset($opts['walk']) && $opts['walk']);
+    $is_buffered = !($opts_unbuf || $opts_walk);
+
+    list($query, $args) = $this->runHook('pre_parse', array('query' => $query, 'args' => $args));
+    $sql = call_user_func_array(array($this, 'parse'), array_merge(array($query), $args));
+    $sql = $this->runHook('pre_run', array('query' => $sql));
+    $this->last_query = $sql;
+
     $db = $this->get();
-
-    $is_buffered = true;
-    $row_type = 'assoc'; // assoc, list, raw
-    $full_names = false;
-
-    switch ($type) {
-      case 'assoc':
-        break;
-      case 'list':
-        $row_type = 'list';
-        break;
-      case 'full':
-        $row_type = 'list';
-        $full_names = true;
-        break;
-      case 'raw_buf':
-        $row_type = 'raw';
-        break;
-      case 'raw_unbuf':
-        $is_buffered = false;
-        $row_type = 'raw';
-        break;
-      default:
-        return $this->nonSQLError('Error -- invalid argument to queryHelper!');
-    }
-
-    $sql = call_user_func_array(array($this, 'parseQueryParams'), $args);
-    
-    if ($this->success_handler) $starttime = microtime(true);
+    $starttime = microtime(true);
     if ($isMultiUpdate) {
       $result = [];
       if ($db->multi_query($sql)) {
@@ -710,38 +894,8 @@ class MeekroDB {
     } else {
       $result = $db->query($sql, $is_buffered ? MYSQLI_STORE_RESULT : MYSQLI_USE_RESULT);
     }
-    if ($this->success_handler) $runtime = microtime(true) - $starttime;
-    else $runtime = 0;
-
-    // ----- BEGIN ERROR HANDLING
-    if (!$sql || $db->error) {
-      if ($this->error_handler) {
-        $error_handler = is_callable($this->error_handler) ? $this->error_handler : 'meekrodb_error_handler';
-        
-        call_user_func($error_handler, array(
-          'type' => 'sql',
-          'query' => $sql,
-          'error' => $db->error,
-          'code' => $db->errno
-        ));
-      }
-      
-      if ($this->throw_exception_on_error) {
-        $e = new MeekroDBException($db->error, $sql, $db->errno);
-        throw $e;
-      }
-    } else if ($this->success_handler) {
-      $runtime = sprintf('%f', $runtime * 1000);
-      $success_handler = is_callable($this->success_handler) ? $this->success_handler : 'meekrodb_debugmode_handler';
-      
-      call_user_func($success_handler, array(
-        'query' => $sql,
-        'runtime' => $runtime,
-        'affected' => $db->affected_rows
-      )); 
-    }
-
-    // ----- END ERROR HANDLING
+    $runtime = microtime(true) - $starttime;
+    $runtime = sprintf('%f', $runtime * 1000);
 
     $this->insert_id = $db->insert_id;
     $this->affected_rows = $db->affected_rows;
@@ -750,11 +904,38 @@ class MeekroDB {
     if ($is_buffered && ($result instanceof MySQLi_Result)) $this->num_rows = $result->num_rows;
     else $this->num_rows = null;
 
-    if ($row_type == 'raw' || !($result instanceof MySQLi_Result)) return $result;
+    $Exception = null;
+    if ($db->error) {
+      $Exception = new MeekroDBException($db->error, $sql, $db->errno);
+    }
+
+    $hookHash = array('query' => $sql, 'runtime' => $runtime);
+    if ($Exception) {
+      $hookHash['exception'] = $Exception;
+      $hookHash['error'] = $Exception->getMessage();
+    } else if ($this->num_rows) {
+      $hookHash['rows'] = $this->num_rows;
+    } else {
+      $hookHash['affected'] = $db->affected_rows;
+    }
+
+    $this->defaultRunHook($hookHash);
+    $this->runHook('post_run', $hookHash);
+    if ($Exception) {
+      $result = $this->runHook('run_failed', $hookHash);
+      if ($result !== false) throw $Exception;
+    }
+    else {
+      $this->runHook('run_success', $hookHash);
+    }
+
+    if ($opts_walk) return new MeekroDBWalk($db, $result);
+    if (!($result instanceof MySQLi_Result)) return $result; // query was not a SELECT?
+    if ($isMultiUpdate || $opts_raw) return $result;
 
     $return = array();
 
-    if ($full_names) {
+    if ($opts_fullcols) {
       $infos = array();
       foreach ($result->fetch_fields() as $info) {
         if (strlen($info->table)) $infos[] = $info->table . '.' . $info->name;
@@ -762,8 +943,8 @@ class MeekroDB {
       }
     }
 
-    while ($row = ($row_type == 'assoc' ? $result->fetch_assoc() : $result->fetch_row())) {
-      if ($full_names) $row = array_combine($infos, $row);
+    while ($row = ($opts_assoc ? $result->fetch_assoc() : $result->fetch_row())) {
+      if ($opts_fullcols) $row = array_combine($infos, $row);
       $return[] = $row;
     }
 
@@ -777,7 +958,7 @@ class MeekroDB {
     return $return;
   }
 
-  public function queryOneRow() { $args = func_get_args(); return call_user_func_array(array($this, 'queryFirstRow'), $args); }
+
   public function queryFirstRow() {
     $args = func_get_args();
     $result = call_user_func_array(array($this, 'query'), $args);
@@ -785,7 +966,7 @@ class MeekroDB {
     return reset($result);
   }
 
-  public function queryOneList() { $args = func_get_args(); return call_user_func_array(array($this, 'queryFirstList'), $args); }
+
   public function queryFirstList() {
     $args = func_get_args();
     $result = call_user_func_array(array($this, 'queryAllLists'), $args);
@@ -806,33 +987,25 @@ class MeekroDB {
     
     return $ret;
   }
-  
-  public function queryOneColumn() {
-    $args = func_get_args();
-    $column = array_shift($args);
-    $results = call_user_func_array(array($this, 'query'), $args);
-    $ret = array();
-    
-    if (!count($results) || !count($results[0])) return $ret;
-    if ($column === null) {
-      $keys = array_keys($results[0]);
-      $column = $keys[0];
-    }
-    
-    foreach ($results as $row) {
-      $ret[] = $row[$column];
-    }
-    
-    return $ret;
-  }
-  
+
   public function queryFirstField() { 
     $args = func_get_args();
     $row = call_user_func_array(array($this, 'queryFirstList'), $args);
     if ($row == null) return null;    
     return $row[0];
   }
-  
+
+  // --- begin deprecated methods (kept for backwards compatability)
+  public function debugMode($enable=true) {
+    if ($enable) $this->logfile = fopen('php://output', 'w');
+    else $this->logfile = null;
+  }
+
+  public function queryRaw() { return $this->queryHelper(array('raw' => true), func_get_args()); }
+  public function queryRawUnbuf() { return $this->queryHelper(array('raw' => true, 'unbuf' => true), func_get_args()); }
+  public function queryOneList() { return call_user_func_array(array($this, 'queryFirstList'), func_get_args()); }
+  public function queryOneRow() { return call_user_func_array(array($this, 'queryFirstRow'), func_get_args()); }
+
   public function queryOneField() {
     $args = func_get_args();
     $column = array_shift($args);
@@ -847,6 +1020,59 @@ class MeekroDB {
     
     return $row[$column];
   }
+
+  public function queryOneColumn() {
+    $args = func_get_args();
+    $column = array_shift($args);
+    $results = call_user_func_array(array($this, 'query'), $args);
+    $ret = array();
+
+    if (!count($results) || !count($results[0])) return $ret;
+    if ($column === null) {
+      $keys = array_keys($results[0]);
+      $column = $keys[0];
+    }
+
+    foreach ($results as $row) {
+      $ret[] = $row[$column];
+    }
+
+    return $ret;
+  }
+
+}
+
+class MeekroDBWalk {
+  protected $mysqli;
+  protected $result;
+
+  function __construct(MySQLi $mysqli, $result) {
+    $this->mysqli = $mysqli;
+    $this->result = $result;
+  }
+
+  function next() {
+    // $result can be non-object if the query was not a SELECT
+    if (! ($this->result instanceof MySQLi_Result)) return;
+    if ($row = $this->result->fetch_assoc()) return $row;
+    else $this->free();
+  }
+
+  function free() {
+    if (! ($this->result instanceof MySQLi_Result)) return;
+
+    $this->result->free();
+    while ($this->mysqli->more_results()) {
+      $this->mysqli->next_result();
+      if ($result = $this->mysqli->use_result()) $result->free();
+    }
+
+    $this->result = null;
+  }
+
+  function __destruct() {
+    $this->free();
+  }
 }
 
 class WhereClause {
@@ -856,7 +1082,7 @@ class WhereClause {
   
   function __construct($type) {
     $type = strtolower($type);
-    if ($type !== 'or' && $type !== 'and') return DB::nonSQLError('you must use either WhereClause(and) or WhereClause(or)');
+    if ($type !== 'or' && $type !== 'and') throw new MeekroDBException('you must use either WhereClause(and) or WhereClause(or)');
     $this->type = $type;
   }
   
@@ -920,10 +1146,6 @@ class WhereClause {
     if ($this->negate) $sql = '(NOT ' . $sql . ')';
     return array($sql, $args);
   }
-  
-  // backwards compatability
-  // we now return full WhereClause object here and evaluate it in preparseQueryParams
-  function text() { return $this; }
 }
 
 class DBTransaction {
@@ -949,83 +1171,10 @@ class MeekroDBException extends Exception {
   function __construct($message='', $query='', $code = 0) {
     parent::__construct($message);
     $this->query = $query;
-	$this->code = $code;
+    $this->code = $code;
   }
   
   public function getQuery() { return $this->query; }
-}
-
-class DBHelper {
-  /*
-    verticalSlice
-    1. For an array of assoc rays, return an array of values for a particular key
-    2. if $keyfield is given, same as above but use that hash key as the key in new array
-  */
-  
-  public static function verticalSlice($array, $field, $keyfield = null) {
-    $array = (array) $array;
-    
-    $R = array();
-    foreach ($array as $obj) {
-      if (! array_key_exists($field, $obj)) die("verticalSlice: array doesn't have requested field\n");
-      
-      if ($keyfield) {
-        if (! array_key_exists($keyfield, $obj)) die("verticalSlice: array doesn't have requested field\n");  
-        $R[$obj[$keyfield]] = $obj[$field];
-      } else { 
-        $R[] = $obj[$field];
-      }
-    }
-    return $R;
-  }
-  
-  /*
-    reIndex
-    For an array of assoc rays, return a new array of assoc rays using a certain field for keys
-  */
-  
-  public static function reIndex() {
-    $fields = func_get_args();
-    $array = array_shift($fields);
-    $array = (array) $array;
-    
-    $R = array();
-    foreach ($array as $obj) {
-      $target =& $R;
-      
-      foreach ($fields as $field) {
-        if (! array_key_exists($field, $obj)) die("reIndex: array doesn't have requested field\n");
-        
-        $nextkey = $obj[$field];
-        $target =& $target[$nextkey];
-      }
-      $target = $obj;
-    }
-    return $R;
-  }
-}
-
-function meekrodb_error_handler($params) {
-  if (isset($params['query'])) $out[] = "QUERY: " . $params['query'];
-  if (isset($params['error'])) $out[] = "ERROR: " . $params['error'];
-  $out[] = "";
-  
-  if (php_sapi_name() == 'cli' && empty($_SERVER['REMOTE_ADDR'])) {
-    echo implode("\n", $out);
-  } else {
-    echo implode("<br>\n", $out);
-  }
-  
-  die;
-}
-
-function meekrodb_debugmode_handler($params) {
-  echo "QUERY: " . $params['query'] . " [" . $params['runtime'] . " ms]";
-  if (php_sapi_name() == 'cli' && empty($_SERVER['REMOTE_ADDR'])) {
-    echo "\n";
-  } else {
-    echo "<br>\n";
-  }
 }
 
 class MeekroDBEval {
