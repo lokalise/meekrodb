@@ -117,10 +117,12 @@ class ObjectTest extends SimpleTest {
     $results = $this->mdb->query("SELECT * FROM accounts WHERE username!=%s", "Charlie's Friend");
     $this->assert(count($results) === 2);
     
-    $columnlist = $this->mdb->columnList('accounts');
-    $this->assert(count($columnlist) === 6);
-    $this->assert($columnlist[0] === 'id');
-    $this->assert($columnlist[4] === 'height');
+    $columnList = $this->mdb->columnList('accounts');
+    $columnKeys = array_keys($columnList);
+    $this->assert(count($columnList) === 6);
+    $this->assert($columnList['id']['type'] == 'int');
+    $this->assert($columnList['height']['type'] == 'double');
+    $this->assert($columnKeys[4] == 'height');
     
     $tablelist = $this->mdb->tableList();
     $this->assert(count($tablelist) === 1);
@@ -215,7 +217,7 @@ class ObjectTest extends SimpleTest {
     ) ENGINE = InnoDB");
     
     
-    $smile = file_get_contents('smile1.jpg');
+    $smile = file_get_contents(__DIR__ . '/smile1.jpg');
     $this->mdb->insert('storedata', array(
       'picture' => $smile,
     ));
@@ -304,6 +306,25 @@ class ObjectTest extends SimpleTest {
     
     $this->mdb->query("UPDATE accounts SET age=15, username='Bart' WHERE age=%i", 74);
     $this->assert($this->mdb->affectedRows() === 1);
+  }
+
+  function test_8_multi_update() {
+    $this->mdb->update('accounts', array('age' => 110, 'height' => 211), 'id = %i', 6);
+    $result = $this->mdb->query("SELECT * FROM accounts WHERE id = 6");
+    $this->assert(count($result) === 1);
+    $this->assert($result[0]['age'] === '110');
+    $this->assert($result[0]['height'] === '211');
+
+    $this->mdb->update('accounts', array(
+      array(array('age' => 300, 'height' => 330), 'id = %i', 6),
+      array(array('age' => 200, 'height' => 250), 'id = %i', 7),
+    ));
+    $result = $this->mdb->query("SELECT * FROM accounts WHERE id IN (6, 7)");
+    $this->assert(count($result) === 2);
+    $this->assert($result[0]['age'] === '300');
+    $this->assert($result[0]['height'] === '330');
+    $this->assert($result[1]['age'] === '200');
+    $this->assert($result[1]['height'] === '250');
   }
 
 }
