@@ -1,1 +1,3 @@
 simpletest/test_setup.php
+.idea/
+vendor/
