@@ -49,7 +49,8 @@ class DB {
     $mdb = DB::$mdb;
     
     if ($mdb === null) {
-      $mdb = DB::$mdb = new MeekroDB();
+      global $kernel;
+      $mdb = DB::$mdb = $kernel->getContainer()->get('lokalise.adapter.database');
     }
 
     // Sync everytime because settings might have changed. It's fast.
@@ -308,6 +309,27 @@ class MeekroDB {
     $args = func_get_args();
     $table = array_shift($args);
     $params = array_shift($args);
+
+    if (empty($args) && is_array($params) && is_array($params[0])) {
+      //If params consist of an array of arrays, then it's most likely a multi-update query
+      $queries = [];
+      $queryArguments = [];
+      foreach ($params as $param) {
+        $queries[] = str_replace('%', $this->param_char, "UPDATE %b SET %? WHERE ") . $param[1];
+        $queryArguments[] = $table;
+        $queryArguments[] = $param[0];
+
+        for ($i = 2, $count = count($param); $i < $count; $i++) {
+          $queryArguments[] = $param[$i];
+        }
+      }
+
+      array_unshift($queryArguments, 'multiUpdate');
+      array_unshift($queryArguments, implode(';', $queries));
+
+      return call_user_func_array(array($this, 'query'), $queryArguments);
+    }
+
     $where = array_shift($args);
     
     $query = str_replace('%', $this->param_char, "UPDATE %b SET %hc WHERE ") . $where;
@@ -638,6 +660,15 @@ class MeekroDB {
   protected function queryHelper() {
     $args = func_get_args();
     $type = array_shift($args);
+
+    $isMultiUpdate = false;
+
+    if (!empty($args) && $args[1] === 'multiUpdate') {
+      //If this is a multi-update query, remove the flag from args array
+      array_splice($args, 1, 1);
+      $isMultiUpdate = true;
+    }
+
     $db = $this->get();
 
     $is_buffered = true;
@@ -668,7 +699,17 @@ class MeekroDB {
     $sql = call_user_func_array(array($this, 'parseQueryParams'), $args);
     
     if ($this->success_handler) $starttime = microtime(true);
-    $result = $db->query($sql, $is_buffered ? MYSQLI_STORE_RESULT : MYSQLI_USE_RESULT);
+    if ($isMultiUpdate) {
+      $result = [];
+      if ($db->multi_query($sql)) {
+        //Since we are currently only dealing with update queries, store total affected rows as a result
+        do {
+          $result[] = $db->affected_rows;
+        } while ($db->next_result());
+      }
+    } else {
+      $result = $db->query($sql, $is_buffered ? MYSQLI_STORE_RESULT : MYSQLI_USE_RESULT);
+    }
     if ($this->success_handler) $runtime = microtime(true) - $starttime;
     else $runtime = 0;
 
