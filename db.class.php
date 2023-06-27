@@ -450,7 +450,7 @@ class MeekroDB {
       $queries = [];
       $queryArguments = [];
       foreach ($params as $param) {
-        $queries[] = str_replace('%', $this->param_char, "UPDATE %b SET %? WHERE ") . $param[1];
+        $queries[] = str_replace('%', $this->param_char, "UPDATE %b SET %hc WHERE ") . $param[1];
         $queryArguments[] = $table;
         $queryArguments[] = $param[0];
 
@@ -459,10 +459,9 @@ class MeekroDB {
         }
       }
 
-      array_unshift($queryArguments, 'multiUpdate');
       array_unshift($queryArguments, implode(';', $queries));
 
-      return call_user_func_array(array($this, 'query'), $queryArguments);
+      return call_user_func_array(array($this, 'queryMultiUpdate'), $queryArguments);
     }
 
     $update_part = $this->parse(
@@ -858,16 +857,12 @@ class MeekroDB {
   public function queryFullColumns() { return $this->queryHelper(array('fullcols' => true), func_get_args()); }
   public function queryWalk() { return $this->queryHelper(array('walk' => true), func_get_args()); }
 
+  public function queryMultiUpdate() { return $this->queryHelper(array('multiupdate' => true), func_get_args()); }
+
   protected function queryHelper($opts, $args) {
     $query = array_shift($args);
 
-    $isMultiUpdate = false;
-
-    if (!empty($args) && $args[1] === 'multiUpdate') {
-      //If this is a multi-update query, remove the flag from args array
-      array_splice($args, 1, 1);
-      $isMultiUpdate = true;
-    }
+    $opts_multiupdate = (isset($opts['multiupdate']) && $opts['multiupdate']);
 
     $opts_fullcols = (isset($opts['fullcols']) && $opts['fullcols']);
     $opts_raw = (isset($opts['raw']) && $opts['raw']);
@@ -883,8 +878,8 @@ class MeekroDB {
 
     $db = $this->get();
     $starttime = microtime(true);
-    if ($isMultiUpdate) {
-      $result = [];
+    if ($opts_multiupdate) {
+      $result = array();
       if ($db->multi_query($sql)) {
         //Since we are currently only dealing with update queries, store total affected rows as a result
         do {
@@ -931,7 +926,7 @@ class MeekroDB {
 
     if ($opts_walk) return new MeekroDBWalk($db, $result);
     if (!($result instanceof MySQLi_Result)) return $result; // query was not a SELECT?
-    if ($isMultiUpdate || $opts_raw) return $result;
+    if ($opts_multiupdate || $opts_raw) return $result;
 
     $return = array();
 

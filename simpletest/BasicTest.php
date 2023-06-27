@@ -1,4 +1,7 @@
 <?php
+
+/** @noinspection SqlResolve */
+
 class BasicTest extends SimpleTest {
   function __construct() {
     foreach (DB::tableList() as $table) {
@@ -9,14 +12,14 @@ class BasicTest extends SimpleTest {
   
   function test_1_create_table() {
     DB::query("CREATE TABLE `accounts` (
-    `id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY ,
-    `profile_id` INT NOT NULL,
-    `username` VARCHAR( 255 ) NOT NULL ,
+    `id` INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY ,
+    `profile_id` INT(11) NOT NULL DEFAULT '0',
+    `username` VARCHAR( 255 ) NOT NULL DEFAULT 'user',
     `password` VARCHAR( 255 ) NULL ,
     `user.age` INT NOT NULL DEFAULT '10',
     `height` DOUBLE NOT NULL DEFAULT '10.0',
     `favorite_word` VARCHAR( 255 ) NULL DEFAULT 'hi',
-    `birthday` TIMESTAMP NOT NULL
+    `birthday` TIMESTAMP NULL
     ) ENGINE = InnoDB");
 
     DB::query("CREATE TABLE `profile` (
@@ -151,7 +154,7 @@ class BasicTest extends SimpleTest {
     $columnList = DB::columnList('accounts');
     $columnKeys = array_keys($columnList);
     $this->assert(count($columnList) === 8);
-    $this->assert($columnList['id']['type'] == 'int(11)');
+    $this->assert($columnList['id']['type'] == 'int');
     $this->assert($columnList['height']['type'] == 'double');
     $this->assert($columnKeys[5] == 'height');
     

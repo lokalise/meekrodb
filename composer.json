@@ -18,8 +18,12 @@
             "email": "stsalkov@gmail.com"
         }
     ],
+    "scripts": {
+        "test": "DB_USER=testuser DB_PASSWORD=pass DB_HOST=127.0.0.1 DB_NAME=meekrodb php ./simpletest/test.php"
+    },
     "require": {
-        "php": ">=5.3.0"
+        "php": ">=5.3.0",
+        "ext-mysqli": "*"
     },
     "autoload": {
         "classmap": [

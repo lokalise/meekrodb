@@ -21,15 +21,14 @@ function microtime_float()
 ini_set('date.timezone', 'America/Los_Angeles');
 
 error_reporting(E_ALL | E_STRICT);
-require_once __DIR__ . '/../db.class.php';
-require_once __DIR__ . '/test_setup.php'; //test config values go here
-// WARNING: ALL tables in the database will be dropped before the tests, including non-test related tables. 
-DB::$user = $set_db_user;
-DB::$password = $set_password;
-DB::$dbName = $set_db;
-DB::$host = $set_host;
-DB::get(); //connect to mysql
+require_once __DIR__ . '/bootstrap.php';
+DB::$user = getenv('DB_USER');
+DB::$password = getenv('DB_PASSWORD');
+DB::$dbName = getenv('DB_NAME');
+DB::$host = getenv('DB_HOST');
+TestKernel::boot();
 
+// WARNING: ALL tables in the database will be dropped before the tests, including non-test related tables.
 require_once __DIR__ . '/BasicTest.php';
 require_once __DIR__ . '/WalkTest.php';
 require_once __DIR__ . '/CallTest.php';
@@ -55,7 +54,6 @@ if ($mysql_version >= '5.5') {
 } else {
   echo "MySQL 5.5 not available (version is $mysql_version) -- skipping MySQL 5.5 tests\n";
 }
-
 $time_start = microtime_float();
 foreach ($classes_to_test as $class) {
   $object = new $class();

@@ -120,7 +120,7 @@ class ObjectTest extends SimpleTest {
     $columnList = $this->mdb->columnList('accounts');
     $columnKeys = array_keys($columnList);
     $this->assert(count($columnList) === 6);
-    $this->assert($columnList['id']['type'] == 'int(11)');
+    $this->assert($columnList['id']['type'] == 'int');
     $this->assert($columnList['height']['type'] == 'double');
     $this->assert($columnKeys[4] == 'height');
     
@@ -309,16 +309,16 @@ class ObjectTest extends SimpleTest {
   }
 
   function test_8_multi_update() {
-    $this->mdb->update('accounts', ['age' => 110, 'height' => 211], 'id = %i', 6);
+    $this->mdb->update('accounts', array('age' => 110, 'height' => 211), 'id = %i', 6);
     $result = $this->mdb->query("SELECT * FROM accounts WHERE id = 6");
     $this->assert(count($result) === 1);
     $this->assert($result[0]['age'] === '110');
     $this->assert($result[0]['height'] === '211');
 
-    $this->mdb->update('accounts', [
-      [['age' => 300, 'height' => 330], 'id = %i', 6],
-      [['age' => 200, 'height' => 250], 'id = %i', 7],
-    ]);
+    $this->mdb->update('accounts', array(
+      array(array('age' => 300, 'height' => 330), 'id = %i', 6),
+      array(array('age' => 200, 'height' => 250), 'id = %i', 7),
+    ));
     $result = $this->mdb->query("SELECT * FROM accounts WHERE id IN (6, 7)");
     $this->assert(count($result) === 2);
     $this->assert($result[0]['age'] === '300');
